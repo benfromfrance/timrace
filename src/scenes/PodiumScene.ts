@@ -5,7 +5,6 @@ import type { ChallengeDef } from '../challenges';
 import { Input } from '../input/InputManager';
 import { showChallengeToast } from '../ui/toast';
 import { Match, starTarget, type GameMode } from '../match';
-import { MONSTERS } from '../monsters';
 
 export interface PodiumData {
   mode: GameMode;
@@ -16,6 +15,8 @@ export interface PodiumData {
   teamScore: number;
   /** Coopération : l'équipe a atteint le boss final. */
   reachedBoss: boolean;
+  /** Nom du boss de la partie (avec son emoji). */
+  bossName: string;
   /** Défis réussis en fin de partie, annoncés sur le podium. */
   achievements: ChallengeDef[];
 }
@@ -50,9 +51,9 @@ export class PodiumScene extends Phaser.Scene {
     if (data.mode !== 'versus') {
       title = won ? (data.mode === 'solo' ? 'MISSION ACCOMPLIE !' : "VICTOIRE D'ÉQUIPE !") : 'DÉFAITE…';
       subtitle = won
-        ? `👑 ${MONSTERS.boss.name} est vaincu ! (${data.teamScore} étoiles ramassées${data.mode === 'coop' ? ' ensemble' : ''})`
+        ? `${data.bossName} est vaincu ! (${data.teamScore} étoiles ramassées${data.mode === 'coop' ? ' ensemble' : ''})`
         : data.reachedBoss
-          ? `${MONSTERS.boss.name} a eu raison de vous… si près du but !`
+          ? `${data.bossName} a eu raison de vous… si près du but !`
           : `Les monstres ont eu raison de vous… ${data.teamScore} / ${starTarget(data.mode)} étoiles`;
     } else {
       const w = data.winnerIndex ?? 0;

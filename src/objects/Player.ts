@@ -200,10 +200,11 @@ export class Player extends Phaser.Physics.Arcade.Image {
     return this.weapon;
   }
 
-  slowDown(durationMs: number) {
+  /** `quiet` : sans vibration (ralentissement continu, comme une plaque de givre). */
+  slowDown(durationMs: number, quiet = false) {
     // Les impacts prolongent le ralentissement sans jamais le raccourcir
     this.slowUntil = Math.max(this.slowUntil, this.scene.time.now + durationMs);
-    this.controls.rumble(0.7, 180);
+    if (!quiet) this.controls.rumble(0.7, 180);
   }
 
   /** Les tirs et les coups n'ont aucun effet (bouclier ou invisibilité). */

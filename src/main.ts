@@ -4,9 +4,11 @@ import { BootScene } from './scenes/BootScene';
 import { LobbyScene } from './scenes/LobbyScene';
 import { GameScene } from './scenes/GameScene';
 import { PodiumScene } from './scenes/PodiumScene';
+import { ReplayScene } from './scenes/ReplayScene';
 import { CharacterSelectScene } from './scenes/CharacterSelectScene';
 import { MatchSetupScene } from './scenes/MatchSetupScene';
 import { ChallengesScene } from './scenes/ChallengesScene';
+import { StatsScene } from './scenes/StatsScene';
 
 new Phaser.Game({
   type: Phaser.AUTO, // WebGL, repli sur Canvas
@@ -23,5 +25,5 @@ new Phaser.Game({
     default: 'arcade',
     arcade: { gravity: { x: 0, y: 0 }, debug: false },
   },
-  scene: [BootScene, LobbyScene, ChallengesScene, CharacterSelectScene, MatchSetupScene, GameScene, PodiumScene],
+  scene: [BootScene, LobbyScene, ChallengesScene, StatsScene, CharacterSelectScene, MatchSetupScene, GameScene, ReplayScene, PodiumScene],
 });

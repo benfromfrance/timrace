@@ -31,7 +31,7 @@ export const CHALLENGES: ChallengeDef[] = [
     reward: { type: 'character', id: 'ombre', label: 'Ombre 👻' },
     goal: { stat: 'monstersKilled', target: 50 },
   },
-  { id: 'regicide', name: 'Régicide', description: 'Vaincre le Roi Gloubi (coopération ou solo).', reward: { type: 'arena', id: 'volcan', label: 'Arène Volcan 🌋' } },
+  { id: 'regicide', name: 'Régicide', description: 'Vaincre un boss final (coopération ou solo).', reward: { type: 'arena', id: 'volcan', label: 'Arène Volcan 🌋' } },
   { id: 'untouchable', name: 'Intouchable', description: 'Vaincre le boss sans perdre de cœur pendant le combat.' },
   { id: 'chain-reaction', name: 'Réaction en chaîne', description: 'Tuer 3 monstres avec une seule explosion.' },
   { id: 'thief', name: 'Pie voleuse', description: 'Ramasser 5 étoiles tombées au sol en une partie.' },

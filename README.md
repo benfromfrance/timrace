@@ -55,6 +55,14 @@ Sons et musiques (menus, combat, boss) sont **synthétisés en direct** (Web Aud
 | 🪃 | Boomerang | Traverse les ennemis puis revient vers son lanceur |
 | 🧨 | Mines | Posées derrière soi, explosent au passage d'un ennemi |
 
+## Action replay
+
+À la fin de chaque partie, les **3 dernières secondes** sont rejouées avant le podium : rembobinage VHS, ralenti cinéma (bandes noires, ● REPLAY, traînées de mouvement), **bullet time** avec zoom sur le moment décisif (victoire, mort du boss ou dernier coup reçu), puis image figée avec tampon « K.O. ! », « BOSS VAINCU ! » ou « GAME OVER ». **☰** (ou Ⓐ après 1 s) pour passer.
+
+## Statistiques
+
+Depuis l'accueil, **Ⓧ** ouvre l'écran des statistiques (enregistrées dans le navigateur) : parties jouées, victoires, temps de jeu, étoiles et monstres, réussite par mode, boss rencontrés / vaincus avec record de vitesse, parties et victoires par personnage et par arène. Les parties abandonnées ne sont pas comptées.
+
 ## Défis
 
 Accessibles depuis l'accueil avec **Ⓨ**. Progression enregistrée dans le navigateur (localStorage).
@@ -63,7 +71,7 @@ Accessibles depuis l'accueil avec **Ⓨ**. Progression enregistrée dans le navi
 |---|---|---|
 | Première victoire | Gagner un duel | **Pyro** |
 | Chasseur de monstres | Tuer 50 monstres (cumulé) | **Ombre** |
-| Régicide | Vaincre le Roi Gloubi | **Arène Volcan** |
+| Régicide | Vaincre un boss final | **Arène Volcan** |
 | Intouchable | Vaincre le boss sans perdre de cœur pendant le combat | trophée |
 | Réaction en chaîne | Tuer 3 monstres avec une seule explosion | trophée |
 | Pie voleuse | Ramasser 5 étoiles tombées en une partie | trophée |
@@ -94,7 +102,14 @@ De nouveaux types se débloquent au fil de la partie. Tuer un monstre donne une 
 | Spectre (blanc) | **Apparition** : traverse les murs, disparaît puis réapparaît près de sa cible | 40 s |
 | Mitose (rose) | **Division** : résistant, se coupe en deux Mini-Mitoses en mourant | 40 s |
 
-**Boss final (coopération)** : à 20 étoiles, l'arène se vide et le **Roi Gloubi** arrive (+2 ❤). Il tire des anneaux de projectiles, invoque des Fusées sous 66 % de vie, puis devient enragé sous 33 % (plus rapide, charges). Le vaincre fait gagner la partie.
+**Boss final (coopération et solo)** : une fois l'objectif d'étoiles atteint, l'arène se vide (+2 ❤) et un boss **tiré au hasard** arrive. Chacun a 3 phases selon ses PV (enragé et rouge sous 33 %) ; le vaincre fait gagner la partie.
+
+| Boss | Phase 1 | Phase 2 (< 66 %) | Phase 3 (< 33 %) |
+|---|---|---|---|
+| 👑 Roi Gloubi | Anneaux de projectiles | + invoque des Fusées | Charges furieuses |
+| ❄️ Reine Givre | Blizzard en spirale (garde ses distances) | + plaques de givre qui ralentissent | Se téléporte, triple spirale |
+| 🌋 Golem de Lave | Lance des rochers | + séisme autour de lui (zone annoncée en rouge) | Pluie de météores sur les joueurs |
+| 👻 Spectre Ancien | Tirs en croix tournants | + invoque des Spectres | Apparitions éclair suivies d'un anneau |
 
 ## Modes
 
@@ -120,6 +135,8 @@ src/
   weapons.ts           armes (missile, mitraille…) et armes bonus
   characters.ts        personnages et pouvoirs
   challenges.ts        défis, récompenses et sauvegarde de la progression
+  stats.ts             statistiques des parties (localStorage)
+  replay.ts            enregistrement des dernières secondes pour le replay
   audio/Sound.ts       effets sonores et musiques synthétisés
   ui/toast.ts          bandeau « Défi réussi »
   monsters.ts          types de monstres (PV, vitesse, déblocage) et boss
@@ -134,9 +151,11 @@ src/
     BootScene.ts       génération ou chargement des assets
     LobbyScene.ts      « Appuyez sur Ⓐ pour rejoindre »
     ChallengesScene.ts liste des défis
+    StatsScene.ts      écran des statistiques
     CharacterSelectScene.ts  choix du personnage
     MatchSetupScene.ts choix du mode et de l'arène
     GameScene.ts       le jeu (duel / coop, pouvoirs, armes, monstres, arène)
+    ReplayScene.ts     action replay de fin de partie
     PodiumScene.ts     écran de fin (podium ou bilan d'équipe)
   objects/
     Player.ts

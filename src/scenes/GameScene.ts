@@ -5,12 +5,15 @@ import { Progress, type ChallengeDef, type ChallengeId } from '../challenges';
 import { COOP_LIVES, FONT, GAME_HEIGHT, GAME_WIDTH, PLAYER_COLORS, SCORE_TO_WIN, SOLO_BOSS_HP, TEAM_SPEED_BONUS, css } from '../config';
 import { Input } from '../input/InputManager';
 import { Match, starTarget, type GameMode } from '../match';
-import { MONSTERS, pickMonsterType, type MonsterTypeId } from '../monsters';
-import { Monster, type MonsterWorld } from '../objects/Monster';
+import { BOSSES, MONSTERS, pickMonsterType, type BossId, type MonsterDef, type MonsterTypeId } from '../monsters';
+import { Monster, type EnemyShotKind, type MonsterWorld } from '../objects/Monster';
 import { Player } from '../objects/Player';
 import { BONUS_WEAPONS, WEAPONS, type WeaponDef } from '../weapons';
 import type { PodiumData } from './PodiumScene';
 import { showChallengeToast } from '../ui/toast';
+import { Stats } from '../stats';
+import { ReplayRecorder, type KeyMoment } from '../replay';
+import type { ReplayData } from './ReplayScene';
 
 const CRATE_SPAWN_DELAY_MS = 7000; // délai avant l'apparition d'une nouvelle caisse d'arme
 const DROPPED_STAR_LIFETIME_MS = 6000;
@@ -30,9 +33,11 @@ const HOMING_TURN = 4; // rad/s
 const BOOMERANG_OUT_MS = 400;
 const MINE_ARM_MS = 600;
 const MINE_TRIGGER = 60;
-const ENEMY_SHOTS = {
+const ENEMY_SHOTS: Record<EnemyShotKind, { speed: number; lifetimeMs: number }> = {
   goo: { speed: 380, lifetimeMs: 2500 }, // ralentit
   orb: { speed: 300, lifetimeMs: 3500 }, // blesse
+  shard: { speed: 420, lifetimeMs: 2600 }, // blesse (Reine Givre)
+  rock: { speed: 280, lifetimeMs: 3500 }, // blesse (Golem de Lave)
 };
 
 /** Apparition des monstres : fixe en duel, de plus en plus intense en coopération et en solo. */
@@ -67,6 +72,15 @@ export class GameScene extends Phaser.Scene {
   private cratesPicked: number[] = [];
   private droppedPicked: number[] = [];
   private livesLostInBoss = 0;
+  // Compteurs de la partie, pour les statistiques
+  private matchStars = 0;
+  private matchKills = 0;
+  private bossSpawnedAt: number | null = null;
+  private bossKilledAt: number | null = null;
+  // Action replay de fin de partie
+  private recorder = new ReplayRecorder();
+  private lastHit: KeyMoment | null = null;
+  private bossDeath: KeyMoment | null = null;
   /** Défis réussis pendant la partie ; ceux de la fin sont affichés sur le podium. */
   private endAchievements: ChallengeDef[] = [];
   private heart!: Img;
@@ -75,6 +89,9 @@ export class GameScene extends Phaser.Scene {
   private enemyShots!: Phaser.Physics.Arcade.Group;
   private world!: MonsterWorld;
   private bossPhase = false;
+  /** Boss tiré au hasard pour cette partie. */
+  private bossDef: MonsterDef = BOSSES[0];
+  private frostZones: Phaser.GameObjects.Arc[] = [];
   private boss: Monster | null = null;
   private bossBar!: Phaser.GameObjects.Graphics;
   private droppedStars!: Phaser.Physics.Arcade.Group;
@@ -102,10 +119,19 @@ export class GameScene extends Phaser.Scene {
     this.startedAt = this.time.now;
     this.bossPhase = false;
     this.boss = null;
+    this.bossDef = Phaser.Utils.Array.GetRandom(BOSSES);
+    this.frostZones = [];
     this.mines = [];
     this.cratesPicked = [0, 0];
     this.droppedPicked = [0, 0];
     this.livesLostInBoss = 0;
+    this.matchStars = 0;
+    this.matchKills = 0;
+    this.bossSpawnedAt = null;
+    this.bossKilledAt = null;
+    this.recorder = new ReplayRecorder();
+    this.lastHit = null;
+    this.bossDeath = null;
     this.endAchievements = [];
     Sound.playMusic('battle');
 
@@ -172,6 +198,8 @@ export class GameScene extends Phaser.Scene {
         if (this.monsters.countActive() < MAX_SUMMONED) this.spawnMonsterAt(type, x, y);
       },
       pointNear: (x, y, d) => this.pointNear(x, y, d),
+      telegraph: (x, y, r, delay) => this.telegraph(x, y, r, delay),
+      frostZone: (x, y, r, ms) => this.frostZone(x, y, r, ms),
     };
 
     this.droppedStars = this.physics.add.group();
@@ -215,6 +243,12 @@ export class GameScene extends Phaser.Scene {
       if (p.hasEffect('magnet', time)) this.pullStars(p);
     }
     this.updateProjectiles(time);
+    this.recorder.record(this, time);
+    for (const zone of this.frostZones) {
+      for (const p of this.players) {
+        if (Phaser.Math.Distance.Between(zone.x, zone.y, p.x, p.y) < zone.radius) p.slowDown(250, true);
+      }
+    }
     this.checkMines(time);
   }
 
@@ -441,6 +475,7 @@ export class GameScene extends Phaser.Scene {
   /** Coup reçu (monstre, lave ou épée) : recul, puis perte d'une étoile (duel) ou d'un cœur (coop). */
   private hitPlayer(p: Player, fromX: number, fromY: number) {
     if (this.over || !p.hurt(new Phaser.Math.Vector2(fromX, fromY))) return;
+    this.lastHit = { t: this.time.now, x: p.x, y: p.y };
     this.cameras.main.shake(100, 0.004);
     Sound.sfx('hurt');
     if (this.teamMode) {
@@ -560,7 +595,35 @@ export class GameScene extends Phaser.Scene {
     return { x, y };
   }
 
-  private enemyShoot(from: Monster, angle: number, kind: 'goo' | 'orb') {
+  /** Attaque de boss annoncée par un cercle rouge clignotant, puis explosion qui ne blesse que les joueurs. */
+  private telegraph(x: number, y: number, radius: number, delayMs: number) {
+    const warn = this.add.circle(x, y, radius, 0xff1744, 0.15).setStrokeStyle(4, 0xff1744, 0.9).setDepth(2);
+    this.tweens.add({ targets: warn, alpha: { from: 0.4, to: 1 }, duration: 150, yoyo: true, repeat: -1 });
+    this.time.delayedCall(delayMs, () => {
+      warn.destroy();
+      if (this.over || !this.boss?.active) return; // le boss est mort entre-temps
+      Sound.sfx('explosion');
+      const blast = this.add.circle(x, y, radius, 0xff6d00, 0.5).setScale(0.3);
+      this.tweens.add({ targets: blast, scale: 1, alpha: 0, duration: 350, ease: 'Cubic.Out', onComplete: () => blast.destroy() });
+      this.sparks.setParticleTint(0xff6d00).explode(24, x, y);
+      this.cameras.main.shake(180, 0.007);
+      for (const p of this.players) {
+        if (Phaser.Math.Distance.Between(x, y, p.x, p.y) < radius + 20) this.hitPlayer(p, x, y);
+      }
+    });
+  }
+
+  private frostZone(x: number, y: number, radius: number, durationMs: number) {
+    const zone = this.add.circle(x, y, radius, 0x80deea, 0.25).setStrokeStyle(3, 0xe1f5fe, 0.8).setDepth(1).setScale(0);
+    this.tweens.add({ targets: zone, scale: 1, duration: 300, ease: 'Back.Out' });
+    this.frostZones.push(zone);
+    this.time.delayedCall(durationMs, () => {
+      this.frostZones = this.frostZones.filter((z) => z !== zone);
+      this.tweens.add({ targets: zone, alpha: 0, duration: 300, onComplete: () => zone.destroy() });
+    });
+  }
+
+  private enemyShoot(from: Monster, angle: number, kind: EnemyShotKind) {
     const cfg = ENEMY_SHOTS[kind];
     Sound.sfx('enemyShot');
     const dist = from.def.radius + 10;
@@ -653,12 +716,13 @@ export class GameScene extends Phaser.Scene {
       Sound.sfx('monsterDie');
       m.destroy();
     }
+    this.matchKills++;
     for (const c of Progress.addStat('monstersKilled')) this.showAchievement(c);
     if (def.id === 'mitose') {
       this.spawnMonsterAt('mini', x - 25, y);
       this.spawnMonsterAt('mini', x + 25, y);
     }
-    if (def.id === 'boss') this.onBossDefeated(x, y);
+    if (def.boss) this.onBossDefeated(x, y);
     else killer?.giveSword(this.time.now);
   }
 
@@ -676,10 +740,11 @@ export class GameScene extends Phaser.Scene {
     Sound.sfx('bossRoar');
     Sound.playMusic('boss');
 
+    const boss = this.bossDef;
     const banner = this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2, `⚠ BOSS FINAL ⚠\n👑 ${MONSTERS.boss.name}\n+${BOSS_BONUS_LIVES} ❤`, {
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2, `⚠ BOSS FINAL ⚠\n${boss.boss?.emoji} ${boss.name}\n${boss.power}\n+${BOSS_BONUS_LIVES} ❤`, {
         fontFamily: FONT,
-        fontSize: '64px',
+        fontSize: '56px',
         fontStyle: 'bold',
         align: 'center',
         color: '#ff5252',
@@ -695,12 +760,19 @@ export class GameScene extends Phaser.Scene {
     for (const p of this.players) p.controls.rumble(1, 500);
 
     this.time.delayedCall(2000, () => {
-      if (!this.over) this.boss = this.spawnMonsterAt('boss', GAME_WIDTH / 2, 150, Match.mode === 'solo' ? SOLO_BOSS_HP : 1);
+      if (!this.over) {
+        this.boss = this.spawnMonsterAt(boss.id, GAME_WIDTH / 2, 150, Match.mode === 'solo' ? SOLO_BOSS_HP : 1);
+        this.bossSpawnedAt = this.time.now;
+      }
     });
   }
 
   private onBossDefeated(x: number, y: number) {
     this.boss = null;
+    this.bossKilledAt = this.time.now; // la victoire s'affiche après l'animation : on mesure le combat ici
+    this.bossDeath = { t: this.time.now, x, y };
+    for (const zone of this.frostZones) zone.destroy();
+    this.frostZones = [];
     // Ses invocations et projectiles disparaissent avec lui : plus rien ne peut coûter un cœur
     for (const m of [...this.monsters.getChildren()] as Monster[]) {
       this.sparks.setParticleTint(0x8e24aa).explode(15, m.x, m.y);
@@ -749,6 +821,7 @@ export class GameScene extends Phaser.Scene {
     p.score++;
     p.starRumble();
     Sound.sfx('star');
+    this.matchStars++;
     this.sparks.setParticleTint(0xffd54f).explode(20, x, y);
     if (this.teamMode) {
       this.teamScore++;
@@ -866,7 +939,7 @@ export class GameScene extends Phaser.Scene {
     });
     if (this.teamMode) {
       const hearts = '❤'.repeat(Math.max(0, this.lives)) + '♡'.repeat(COOP_LIVES - Math.max(0, this.lives));
-      this.teamText.setText(this.bossPhase ? `👑 ${MONSTERS.boss.name}     ${hearts}` : `⭐ ${this.teamScore} / ${starTarget(Match.mode)}     ${hearts}`);
+      this.teamText.setText(this.bossPhase ? `${this.bossDef.boss?.emoji} ${this.bossDef.name}     ${hearts}` : `⭐ ${this.teamScore} / ${starTarget(Match.mode)}     ${hearts}`);
     }
     this.bossBar.clear();
     if (this.boss?.active) {
@@ -896,6 +969,42 @@ export class GameScene extends Phaser.Scene {
     this.tweens.add({ targets: label, y: y - 60, alpha: 0, duration: 1000, ease: 'Cubic.Out', onComplete: () => label.destroy() });
   }
 
+  /** Rejoue les dernières secondes (ReplayScene) avant d'afficher le podium. */
+  private startReplay(outcome: 'win' | 'lose', winner: Player | null, then: () => void) {
+    const now = this.time.now;
+    const center = { t: now, x: GAME_WIDTH / 2, y: GAME_HEIGHT / 2 };
+    const key: KeyMoment =
+      outcome === 'lose'
+        ? (this.lastHit ?? center)
+        : winner
+          ? { t: now, x: winner.x, y: winner.y }
+          : (this.bossDeath ?? center);
+    const stamp = outcome === 'lose' ? 'GAME OVER' : winner ? 'K.O. !' : 'BOSS VAINCU !';
+
+    // Cache sprites, textes et interface de la partie : seule l'arène reste, le replay se dessine par-dessus
+    const hidden = this.children.list.filter(
+      (o): o is Phaser.GameObjects.GameObject & Phaser.GameObjects.Components.Visible =>
+        (o instanceof Phaser.GameObjects.Image ||
+          o instanceof Phaser.GameObjects.Text ||
+          o instanceof Phaser.GameObjects.Graphics ||
+          o instanceof Phaser.GameObjects.Particles.ParticleEmitter) &&
+        o.visible,
+    );
+    for (const o of hidden) o.setVisible(false);
+
+    const replay: ReplayData = {
+      frames: this.recorder.frames,
+      key,
+      stamp,
+      stampColor: outcome === 'lose' ? '#ef5350' : '#ffd54f',
+      onDone: () => {
+        for (const o of hidden) o.setVisible(true);
+        then();
+      },
+    };
+    this.scene.launch('Replay', replay);
+  }
+
   private endGame(outcome: 'win' | 'lose', winner: Player | null) {
     if (this.over) return;
     this.over = true;
@@ -916,8 +1025,22 @@ export class GameScene extends Phaser.Scene {
       scores: this.players.map((p) => p.score),
       teamScore: this.teamScore,
       reachedBoss: this.bossPhase,
+      bossName: `${this.bossDef.boss?.emoji} ${this.bossDef.name}`,
       achievements: this.endAchievements,
     };
-    this.scene.launch('Podium', data);
+    Stats.record({
+      mode: Match.mode,
+      outcome,
+      winnerIndex: winner?.index ?? null,
+      characters: this.players.map((p) => p.character.id),
+      arena: this.arena.id,
+      bossId: this.bossPhase ? (this.bossDef.id as BossId) : null,
+      bossDefeated: this.teamMode && outcome === 'win',
+      bossFightMs: this.bossSpawnedAt !== null ? (this.bossKilledAt ?? this.time.now) - this.bossSpawnedAt : null,
+      durationMs: this.time.now - this.startedAt,
+      stars: this.matchStars,
+      monstersKilled: this.matchKills,
+    });
+    this.startReplay(outcome, winner, () => this.scene.launch('Podium', data));
   }
 }

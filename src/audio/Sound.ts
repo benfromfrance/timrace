@@ -10,7 +10,8 @@ export type SfxName =
   | 'swing' | 'hit' | 'star' | 'hurt' | 'monsterDie' | 'explosion' | 'dash' | 'power'
   | 'crate' | 'heart' | 'enemyShot' | 'bossRoar'
   | 'uiMove' | 'uiConfirm' | 'uiBack' | 'uiError'
-  | 'victory' | 'defeat' | 'achievement';
+  | 'victory' | 'defeat' | 'achievement'
+  | 'rewind' | 'slowmo' | 'impact';
 
 export type MusicName = 'menu' | 'battle' | 'boss';
 
@@ -229,6 +230,18 @@ class SoundEngine {
       case 'victory': return this.notes([523, 659, 784, 1046, 784, 1046], 0.13, 'square', 0.12, 0.25);
       case 'defeat': return this.notes([392, 330, 262, 196], 0.25, 'triangle', 0.15, 0.4);
       case 'achievement': return this.notes([784, 988, 1175, 1568], 0.07, 'triangle', 0.15);
+      case 'rewind':
+        this.tone({ freq: 1400, to: 150, type: 'sawtooth', dur: 0.7, vol: 0.12 });
+        return this.noise({ dur: 0.7, vol: 0.15, filter: 'bandpass', cutoff: 2500 });
+      case 'slowmo':
+        // Battement de cœur grave et une nappe qui descend
+        this.tone({ freq: 70, to: 40, type: 'sine', dur: 0.25, vol: 0.6 });
+        this.tone({ freq: 70, to: 40, type: 'sine', dur: 0.25, vol: 0.45, at: 0.3 });
+        return this.tone({ freq: 600, to: 120, type: 'triangle', dur: 1.2, vol: 0.08 });
+      case 'impact':
+        this.noise({ dur: 1, vol: 0.7, cutoff: 900 });
+        this.tone({ freq: 160, to: 30, type: 'sine', dur: 0.9, vol: 0.6 });
+        return this.notes([1046, 1568], 0.05, 'square', 0.1, 0.4);
     }
   }
 

@@ -125,7 +125,7 @@ export class BootScene extends Phaser.Scene {
       g.fillStyle(0xf8bbd0).fillCircle(c, c + r * 0.45, r * 0.22);
     });
     blob('monster-mini', 30, 0xf48fb1);
-    blob('monster-boss', 140, 0x6a1b9a, (c, r) => {
+    blob('boss-gloubi', 140, 0x6a1b9a, (c, r) => {
       teeth(c, r);
       // Couronne
       g.fillStyle(0xffd54f).fillPoints(
@@ -137,6 +137,31 @@ export class BootScene extends Phaser.Scene {
       g.fillStyle(0xff5252).fillCircle(c, c - r * 0.68, 5);
     });
 
+    // Reine Givre : bleu glacé, couronne de pics de glace
+    blob('boss-givre', 140, 0x4fc3f7, (c, r) => {
+      g.fillStyle(0xe1f5fe);
+      for (const dx of [-36, -18, 0, 18, 36]) g.fillTriangle(c + dx - 9, c - r * 0.55, c + dx + 9, c - r * 0.55, c + dx, c - r * (dx === 0 ? 1.02 : 0.88));
+      g.fillStyle(0x01579b).fillEllipse(c, c + r * 0.45, r * 0.5, r * 0.18);
+    });
+    // Golem de Lave : roche sombre et fissures incandescentes
+    blob('boss-golem', 140, 0x4e342e, (c, r) => {
+      g.lineStyle(5, 0xff6d00);
+      g.lineBetween(c - r * 0.7, c - r * 0.1, c - r * 0.3, c + r * 0.2).lineBetween(c - r * 0.3, c + r * 0.2, c - r * 0.45, c + r * 0.6);
+      g.lineBetween(c + r * 0.6, c - r * 0.5, c + r * 0.35, c - r * 0.1).lineBetween(c + r * 0.35, c - r * 0.1, c + r * 0.7, c + r * 0.3);
+      g.fillStyle(0xff6d00).fillRect(c - r * 0.4, c + r * 0.35, r * 0.8, r * 0.18);
+      g.fillStyle(0xffd180).fillCircle(c - r * 0.38, c - r * 0.15, 5).fillCircle(c + r * 0.38, c - r * 0.15, 5);
+    });
+    // Spectre Ancien : pâle, yeux vides, couronne spectrale
+    blob('boss-spectre', 140, 0xd1c4e9, (c, r) => {
+      g.fillStyle(0x311b92).fillCircle(c - r * 0.38, c - r * 0.15, r * 0.22).fillCircle(c + r * 0.38, c - r * 0.15, r * 0.22);
+      g.fillStyle(0xb388ff).fillCircle(c - r * 0.38, c - r * 0.15, 6).fillCircle(c + r * 0.38, c - r * 0.15, 6);
+      g.fillStyle(0x311b92).fillEllipse(c, c + r * 0.45, r * 0.35, r * 0.5);
+      g.fillStyle(0x7e57c2).fillPoints(
+        [[c - 30, c - r * 0.6], [c - 22, c - r * 0.95], [c, c - r * 0.7], [c + 22, c - r * 0.95], [c + 30, c - r * 0.6]].map(([x, y]) => new Phaser.Math.Vector2(x, y)),
+        true,
+      );
+    });
+
     // Projectiles ennemis
     g.fillStyle(0x76ff03).fillCircle(8, 8, 8);
     g.fillStyle(0x33691e).fillCircle(10, 6, 3);
@@ -144,6 +169,12 @@ export class BootScene extends Phaser.Scene {
     g.fillStyle(0xe040fb).fillCircle(10, 10, 10);
     g.fillStyle(0xffffff).fillCircle(10, 10, 4);
     g.generateTexture('orb', 20, 20).clear();
+    g.fillStyle(0xb3e5fc).fillTriangle(0, 3, 16, 0, 16, 6).fillTriangle(16, 0, 20, 3, 16, 6);
+    g.generateTexture('shard', 20, 6).clear();
+    g.fillStyle(0x5d4037).fillCircle(15, 15, 15);
+    g.fillStyle(0xff6d00).fillCircle(11, 12, 4).fillCircle(19, 19, 3);
+    g.lineStyle(2, 0x3e2723).strokeCircle(15, 15, 14);
+    g.generateTexture('rock', 30, 30).clear();
   }
 }
 
