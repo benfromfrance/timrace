@@ -51,6 +51,8 @@ export class Player extends Phaser.Physics.Arcade.Image {
     readonly character: CharacterDef,
     readonly controls: ControlSource,
     private readonly grip = 0.25,
+    /** Multiplicateur de vitesse propre au mode de jeu. */
+    private readonly speedBonus = 1,
   ) {
     super(scene, x, y, 'player');
     this.color = character.color;
@@ -88,7 +90,7 @@ export class Player extends Phaser.Physics.Arcade.Image {
   tick(now: number) {
     const { moveX, moveY, actionPressed, backPressed } = this.controls.state;
     if (backPressed && now < this.swordUntil) this.toggleSword();
-    const speedFactor = (this.isSlowed ? SLOW_FACTOR : 1) * this.character.speed;
+    const speedFactor = (this.isSlowed ? SLOW_FACTOR : 1) * this.character.speed * this.speedBonus;
     const dir = new Phaser.Math.Vector2(moveX, moveY);
     if (dir.lengthSq() > 1) dir.normalize();
     if (dir.lengthSq() > 0.01) this.facing.copy(dir).normalize();

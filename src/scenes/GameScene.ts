@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import type { ArenaDef, Rect } from '../arenas';
 import { Sound } from '../audio/Sound';
 import { Progress, type ChallengeDef, type ChallengeId } from '../challenges';
-import { COOP_LIVES, FONT, GAME_HEIGHT, GAME_WIDTH, PLAYER_COLORS, SCORE_TO_WIN, SOLO_BOSS_HP, css } from '../config';
+import { COOP_LIVES, FONT, GAME_HEIGHT, GAME_WIDTH, PLAYER_COLORS, SCORE_TO_WIN, SOLO_BOSS_HP, TEAM_SPEED_BONUS, css } from '../config';
 import { Input } from '../input/InputManager';
 import { Match, starTarget, type GameMode } from '../match';
 import { MONSTERS, pickMonsterType, type MonsterTypeId } from '../monsters';
@@ -116,7 +116,7 @@ export class GameScene extends Phaser.Scene {
     this.players = Input.slots.slice(0, Match.playerCount).map((source, i) => {
       if (!source) throw new Error(`Aucune entrée pour le joueur ${i + 1}`);
       const { x, y } = this.arena.spawns[i];
-      return new Player(this, x, y, i, Match.characters[i], source, this.arena.grip);
+      return new Player(this, x, y, i, Match.characters[i], source, this.arena.grip, this.teamMode ? TEAM_SPEED_BONUS : 1);
     });
     if (!this.teamMode) {
       const [p1, p2] = this.players;

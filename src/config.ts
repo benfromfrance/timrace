@@ -12,6 +12,8 @@ export const COOP_LIVES = 5;
 /** Solo : mêmes règles que la coopération, en plus court, avec un boss affaibli. */
 export const SOLO_TARGET = 15;
 export const SOLO_BOSS_HP = 0.6;
+/** Coopération et solo : joueurs plus rapides, pour suivre le rythme des monstres. */
+export const TEAM_SPEED_BONUS = 1.25;
 
 export const FONT = 'system-ui, sans-serif';
 export const css = (color: number) => '#' + color.toString(16).padStart(6, '0');
