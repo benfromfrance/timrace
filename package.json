@@ -1,0 +1,33 @@
+{
+  "name": "timcar",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Jeu d'arène 2D pour 1 ou 2 joueurs dans le navigateur, jouable aux manettes Xbox.",
+  "license": "MIT",
+  "author": "Benoit Defrance",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/benfromfrance/timrace.git"
+  },
+  "homepage": "https://github.com/benfromfrance/timrace#readme",
+  "bugs": {
+    "url": "https://github.com/benfromfrance/timrace/issues"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "phaser": "^4.2.1"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "vite": "^8.3.5"
+  }
+}
