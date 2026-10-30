@@ -23,6 +23,40 @@ npm run dev        # http://localhost:5173 (aussi accessible sur le réseau loca
 npm run build      # build de prod dans dist/
 ```
 
+## Déploiement
+
+Le jeu est un site statique : l'image Docker le compile puis le sert avec **nginx** (utilisateur non-root, port **8080**).
+
+### Option 1 : Docker Compose (recommandé)
+
+```bash
+docker compose up -d        # ou : make docker-up
+```
+
+Le jeu est accessible sur **http://localhost:8080** (sonde de santé : `/healthz`).
+
+Sans `build` local, Compose récupère l'image publiée `ghcr.io/benfromfrance/timrace:latest`. Pour reconstruire depuis les sources : `docker compose up -d --build`.
+
+### Option 2 : Image publiée automatiquement
+
+À chaque push sur `main` (et à chaque tag `v*`), la GitHub Action `.github/workflows/docker-publish.yml` construit l'image et la publie sur le **GitHub Container Registry** :
+
+```bash
+docker run -d --name timcar -p 8080:8080 --restart unless-stopped ghcr.io/benfromfrance/timrace:latest
+```
+
+> Le premier paquet publié sur GHCR est **privé** : rendez-le public dans *GitHub → Packages → timrace → Package settings*, ou connectez le serveur avec `docker login ghcr.io`.
+
+### Commandes utiles (Makefile)
+
+| Commande | Effet |
+|---|---|
+| `make dev` | Serveur de développement |
+| `make build` | Build de production dans `dist/` |
+| `make preview` | Sert le build localement |
+| `make docker-build` | Construit l'image `timcar:latest` |
+| `make docker-up` / `make docker-down` | Démarre / arrête le conteneur |
+
 ## Manettes Xbox
 
 1. Branchez les manettes en USB ou appairez-les en Bluetooth (Xbox Series / One S et ultérieures).

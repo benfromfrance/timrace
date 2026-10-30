@@ -1,0 +1,10 @@
+services:
+  timcar:
+    image: ghcr.io/benfromfrance/timrace:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: timcar
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
