@@ -23,6 +23,8 @@ const ECHOES = [12, 8, 4]; // décalages (en images) des traînées, de la plus 
 const BAR_H = 70;
 /** Ⓐ sert aussi au dash : on ne l'accepte pour passer qu'après ce délai (☰ marche tout de suite). */
 const SKIP_WITH_A_AFTER_MS = 1200;
+/** Le tampon final arrive quand l'explosion est à son maximum. */
+const STAMP_DELAY_MS = 350;
 
 type Phase = 'rewind' | 'play' | 'finale' | 'done';
 
@@ -156,25 +158,9 @@ export class ReplayScene extends Phaser.Scene {
     this.renderAt(this.replay.frames[this.replay.frames.length - 1].t, false);
     this.speedLines.clear();
     this.speedLabel.setText('■ PAUSE').setColor('#ffd54f');
-    Sound.sfx('impact');
-
-    const gameCam = this.scene.get('Game').cameras.main;
-    for (const cam of [this.cameras.main, gameCam]) {
-      cam.flash(350, 255, 255, 255);
-      cam.shake(450, 0.012);
-    }
-    this.tweens.add({ targets: this.cam, zoom: 2.2, rot: -0.06, x: key.x, y: key.y, duration: 320, ease: 'Back.Out' });
-
-    // Gerbe d'étincelles au point d'impact
-    const burst = this.add.particles(key.x, key.y, 'spark', {
-      speed: { min: 200, max: 700 },
-      lifespan: 900,
-      scale: { start: 1.6, end: 0 },
-      tint: [0xffd54f, 0xffffff, 0xff7043, 0x4fc3f7],
-      emitting: false,
-    });
-    this.world.add(burst);
-    burst.explode(70);
+    // Zoom percutant (un peu moins serré qu'avant, pour que l'explosion tienne à l'écran)
+    this.tweens.add({ targets: this.cam, zoom: 1.8, rot: -0.06, x: key.x, y: key.y, duration: 320, ease: 'Back.Out' });
+    this.bigExplosion(key.x, key.y);
 
     // Lignes d'impact en étoile + tampon qui s'écrase
     const rays = this.add.graphics();
@@ -184,7 +170,8 @@ export class ReplayScene extends Phaser.Scene {
       const a = (i / 24) * Math.PI * 2;
       rays.lineBetween(GAME_WIDTH / 2 + Math.cos(a) * 220, GAME_HEIGHT / 2 + Math.sin(a) * 220, GAME_WIDTH / 2 + Math.cos(a) * 900, GAME_HEIGHT / 2 + Math.sin(a) * 900);
     }
-    this.tweens.add({ targets: rays, alpha: 0, duration: 700, delay: 150 });
+    rays.setAlpha(0);
+    this.tweens.add({ targets: rays, alpha: { from: 1, to: 0 }, duration: 700, delay: STAMP_DELAY_MS });
 
     const text = this.add
       .text(GAME_WIDTH / 2, GAME_HEIGHT / 2, stamp, {
@@ -201,15 +188,99 @@ export class ReplayScene extends Phaser.Scene {
       .setAlpha(0)
       .setAngle(-25);
     this.ui.add(text);
-    this.tweens.add({ targets: text, scale: 1, alpha: 1, angle: -8, duration: 380, ease: 'Back.Out' });
-    this.tweens.add({ targets: text, scale: 1.08, duration: 500, yoyo: true, repeat: 2, delay: 400, ease: 'Sine.InOut' });
+    // Le tampon s'écrase quand l'explosion est à son maximum
+    this.tweens.add({ targets: text, scale: 1, alpha: 1, angle: -8, duration: 380, delay: STAMP_DELAY_MS, ease: 'Back.Out' });
+    this.tweens.add({ targets: text, scale: 1.08, duration: 500, yoyo: true, repeat: 2, delay: STAMP_DELAY_MS + 400, ease: 'Sine.InOut' });
 
     // Retour en douceur vers le podium
-    this.time.delayedCall(2000, () => {
+    this.time.delayedCall(2600, () => {
       this.tweens.add({ targets: this.cam, zoom: 1, rot: 0, x: GAME_WIDTH / 2, y: GAME_HEIGHT / 2, duration: 450, ease: 'Cubic.InOut' });
       this.tweens.add({ targets: [text, this.world], alpha: 0, duration: 400 });
       this.time.delayedCall(450, () => this.finish());
     });
+  }
+
+  /** Grosse explosion en plusieurs couches au point d'impact (dans le monde rejoué, donc zoomée). */
+  private bigExplosion(x: number, y: number) {
+    const fire = [0xffffff, 0xffeb3b, 0xff9800, 0xff3d00];
+    Sound.sfx('impact');
+    this.time.delayedCall(90, () => Sound.sfx('explosion'));
+
+    const gameCam = this.scene.get('Game').cameras.main;
+    for (const cam of [this.cameras.main, gameCam]) {
+      cam.flash(450, 255, 190, 90);
+      cam.shake(900, 0.022);
+    }
+
+    // 1. Boule de feu : couches lumineuses qui gonflent puis se dissipent
+    fire.forEach((color, i) => {
+      const core = this.add.circle(x, y, 40 + i * 18, color, 0.9).setBlendMode(Phaser.BlendModes.ADD).setScale(0.2);
+      this.world.add(core);
+      this.tweens.add({ targets: core, scale: 3 + i * 0.4, alpha: 0, duration: 320 + i * 140, ease: 'Cubic.Out', onComplete: () => core.destroy() });
+    });
+
+    // 2. Ondes de choc successives
+    for (let i = 0; i < 3; i++) {
+      const ring = this.add.circle(x, y, 50).setStrokeStyle(10 - i * 2, i === 0 ? 0xffffff : 0xffd54f, 1).setScale(0.2);
+      this.world.add(ring);
+      this.tweens.add({ targets: ring, scale: 6 + i, alpha: 0, duration: 500 + i * 200, delay: i * 120, ease: 'Cubic.Out', onComplete: () => ring.destroy() });
+    }
+
+    // 3. Débris : étincelles et éclats de roche projetés qui retombent
+    const sparks = this.add.particles(x, y, 'spark', {
+      speed: { min: 300, max: 950 },
+      lifespan: 1300,
+      gravityY: 700,
+      scale: { start: 1.8, end: 0 },
+      tint: fire,
+      blendMode: Phaser.BlendModes.ADD,
+      emitting: false,
+    });
+    const debris = this.add.particles(x, y, 'rock', {
+      speed: { min: 200, max: 650 },
+      lifespan: 1400,
+      gravityY: 900,
+      rotate: { min: 0, max: 360 },
+      scale: { min: 0.15, max: 0.45 },
+      emitting: false,
+    });
+    this.world.add([sparks, debris]);
+    sparks.explode(140);
+    debris.explode(24);
+
+    // 4. Explosions secondaires en chaîne autour du point d'impact
+    for (let i = 0; i < 6; i++) {
+      this.time.delayedCall(120 + i * 90, () => {
+        const a = Math.random() * Math.PI * 2;
+        const d = Phaser.Math.Between(50, 150);
+        const bx = x + Math.cos(a) * d;
+        const by = y + Math.sin(a) * d;
+        const blast = this.add.circle(bx, by, 30, Phaser.Utils.Array.GetRandom(fire), 0.9).setBlendMode(Phaser.BlendModes.ADD).setScale(0.3);
+        this.world.add(blast);
+        this.tweens.add({ targets: blast, scale: 2.2, alpha: 0, duration: 380, ease: 'Cubic.Out', onComplete: () => blast.destroy() });
+        sparks.explode(18, bx - x, by - y);
+        if (i % 2 === 0) Sound.sfx('explosion');
+      });
+    }
+
+    // 5. Fumée qui monte et se dissipe
+    for (let i = 0; i < 12; i++) {
+      const smoke = this.add
+        .circle(x + Phaser.Math.Between(-60, 60), y + Phaser.Math.Between(-40, 40), Phaser.Math.Between(25, 45), 0x37474f, 0.6)
+        .setScale(0.4)
+        .setAlpha(0);
+      this.world.add(smoke);
+      this.tweens.add({
+        targets: smoke,
+        scale: Phaser.Math.FloatBetween(2, 3.2),
+        alpha: { from: 0.55, to: 0 },
+        y: smoke.y - Phaser.Math.Between(60, 140),
+        duration: Phaser.Math.Between(1200, 1800),
+        delay: 200 + i * 40,
+        ease: 'Sine.Out',
+        onComplete: () => smoke.destroy(),
+      });
+    }
   }
 
   private finish() {

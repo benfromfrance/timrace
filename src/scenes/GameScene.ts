@@ -985,6 +985,7 @@ export class GameScene extends Phaser.Scene {
     const hidden = this.children.list.filter(
       (o): o is Phaser.GameObjects.GameObject & Phaser.GameObjects.Components.Visible =>
         (o instanceof Phaser.GameObjects.Image ||
+          o instanceof Phaser.GameObjects.Sprite ||
           o instanceof Phaser.GameObjects.Text ||
           o instanceof Phaser.GameObjects.Graphics ||
           o instanceof Phaser.GameObjects.Particles.ParticleEmitter) &&

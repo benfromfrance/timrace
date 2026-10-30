@@ -60,7 +60,8 @@ export class ReplayRecorder {
           stroke: String(obj.style.stroke),
           strokeThickness: obj.style.strokeThickness,
         });
-      } else if (obj instanceof Phaser.GameObjects.Image) {
+      } else if (obj instanceof Phaser.GameObjects.Image || obj instanceof Phaser.GameObjects.Sprite) {
+        // Les objets créés par un groupe physique (tirs, étoiles tombées) sont des Sprite, pas des Image
         if (!obj.visible || !obj.active || obj.alpha < 0.02 || obj.depth >= HUD_DEPTH) continue;
         ghosts.push({
           ...this.transform(obj),
@@ -75,7 +76,7 @@ export class ReplayRecorder {
     while (this.frames.length > 1 && this.frames[0].t < t - REPLAY_WINDOW_MS) this.frames.shift();
   }
 
-  private transform(obj: Phaser.GameObjects.Image | Phaser.GameObjects.Text) {
+  private transform(obj: Phaser.GameObjects.Image | Phaser.GameObjects.Sprite | Phaser.GameObjects.Text) {
     return { x: obj.x, y: obj.y, rotation: obj.rotation, scaleX: obj.scaleX, scaleY: obj.scaleY, alpha: obj.alpha };
   }
 }
